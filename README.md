@@ -1,59 +1,32 @@
 # SuiShield
 
-Transaction firewall for Sui. Intercepts every signing request, simulates it against live chain state, and shows you exactly what changes before your wallet sees it.
-
-## Why
-
-Every Sui wallet asks you to approve transactions, but none of them show you what actually happens. You see a blob of Move calls and object IDs — not "500 SUI leaves your wallet." Drainers, phishing dApps, and malicious contracts all look the same as legitimate ones in the signing popup.
-
-SuiShield sits between the dApp and your wallet. Before anything reaches your wallet for signing, you see:
-
-- Which coins leave, which arrive, and how much
-- Which objects get transferred, created, or destroyed
-- Whether the target contract is verified or flagged
-- Whether the connected site is a known phishing domain
-
-If it looks wrong, you reject it. The transaction never reaches your wallet.
+Independent transaction firewall for Sui. Adds a security layer between dApps and your wallet — regardless of which wallet you use.
 
 ## How it works
 
-```
-dApp requests signature
-        ↓
-SuiShield intercepts via Sui Wallet Standard
-        ↓
-sui_devInspectTransactionBlock (dry-run against live state)
-        ↓
-Parse balance changes, object mutations, contract calls
-        ↓
-Display summary → user approves or rejects
-        ↓
-If approved → forward to wallet for signing
-```
+When a dApp asks you to sign a transaction, SuiShield intercepts the request and runs it through Sui's `simulateTransaction` against live chain state. You see a human-readable breakdown of what the transaction actually does — coins in and out, objects moved, contracts called — before your wallet ever sees it.
 
-Runs entirely client-side. No backend, no account, no data collection. Simulation uses public Sui RPC — your keys never leave your wallet.
+Connected sites are checked against the [Sui Guardians](https://github.com/nicola-di-silvio/sui-guardian) blocklist on every page load. If a site is a known phishing domain, you get a warning before you even connect your wallet.
 
-## Compatibility
+## What it adds over wallet-native previews
 
-Works with any wallet that implements the [Sui Wallet Standard](https://docs.sui.io/standards/wallet-standard):
+Wallets like Slush, OKX, and Backpack already show basic transaction previews at signing time. SuiShield is different in a few ways:
 
-- Slush (formerly Sui Wallet)
-- Suiet
-- Backpack
-- Ethos
-- Any future wallet following the standard
+- **Wallet-independent** — same protection regardless of which wallet you use, same interface everywhere
+- **Pre-connect warnings** — phishing sites flagged on page load, not at signing time
+- **Risk pattern detection** — known drainer contract patterns, abnormal outflows to unverified addresses, first-interaction warnings on new contracts
+- **Works alongside your wallet** — not a replacement, an additional layer on top
 
-No integration or permission from wallet developers needed — SuiShield reads the standard interface, not wallet internals.
+## Stack
 
-## Scope
-
-**Web app** — connect your wallet, paste a transaction, see what it does. Useful for one-off checks and reviewing transactions from CLI tools.
-
-**Browser extension** — always-on protection. Every signing request gets simulated automatically. Flags phishing sites on connect.
+- Simulation: [`simulateTransaction`](https://docs.sui.io/guides/developer/sui-101/simulating-refs) (Sui SDK, no custom engine)
+- Phishing data: [Sui Guardians](https://github.com/nicola-di-silvio/sui-guardian) blocklist
+- Wallet integration: [Sui Wallet Standard](https://docs.sui.io/standards/wallet-standard) (works with any compliant wallet)
+- Runtime: client-side only, no backend, no data collection
 
 ## Status
 
-Under active development. Not released yet.
+Under development — web app and browser extension.
 
 ## License
 

@@ -380,7 +380,7 @@
                 <input type="text" id="domainInput" placeholder="e.g. app.cetus.zone or https://suiswap-airdrop.com" spellcheck="false" autocomplete="off">
                 <button id="checkBtn" onclick="checkDomain()">Check</button>
             </div>
-            <div id="result" class="result hidden"></div>
+            <div id="result" class="result" style="display:none"></div>
             <div id="stats" class="checker-stats"></div>
         </div>
     </div>
@@ -470,104 +470,111 @@
     </footer>
 
     <script>
-    let blocklist = null;
-    let allowlist = null;
-    let loaded = false;
+    var blocklist = null;
+    var allowlist = null;
+    var loaded = false;
+    var loading = false;
 
-    async function loadBlocklist() {
-        if (loaded) return;
-        const statsEl = document.getElementById('stats');
+    window.addEventListener('DOMContentLoaded', function() {
+        loadBlocklist();
+        document.getElementById('domainInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') checkDomain();
+        });
+    });
+
+    function loadBlocklist() {
+        if (loaded || loading) return;
+        loading = true;
+        var statsEl = document.getElementById('stats');
         statsEl.textContent = 'Loading blocklist...';
-        try {
-            const res = await fetch('https://raw.githubusercontent.com/suiet/guardians/main/dist/domain-list.json');
-            const data = await res.json();
-            blocklist = new Set(data.blocklist || []);
-            allowlist = new Set(data.allowlist || []);
-            loaded = true;
-            statsEl.textContent = `${blocklist.size.toLocaleString()} phishing domains loaded from Sui Guardians`;
-        } catch (e) {
-            statsEl.textContent = 'Failed to load blocklist. Try again.';
-        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'https://raw.githubusercontent.com/suiet/guardians/main/dist/domain-list.json', true);
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    var bl = data.blocklist || [];
+                    var al = data.allowlist || [];
+                    blocklist = {};
+                    allowlist = {};
+                    for (var i = 0; i < bl.length; i++) blocklist[bl[i]] = true;
+                    for (var i = 0; i < al.length; i++) allowlist[al[i]] = true;
+                    loaded = true;
+                    loading = false;
+                    statsEl.textContent = bl.length.toLocaleString() + ' phishing domains loaded from Sui Guardians';
+                    document.getElementById('checkBtn').disabled = false;
+                } catch(e) {
+                    statsEl.textContent = 'Failed to parse blocklist.';
+                    loading = false;
+                }
+            } else {
+                statsEl.textContent = 'Failed to load blocklist (HTTP ' + xhr.status + ')';
+                loading = false;
+            }
+        };
+        xhr.onerror = function() {
+            statsEl.textContent = 'Network error loading blocklist.';
+            loading = false;
+        };
+        xhr.send();
     }
 
     function extractDomain(input) {
-        let s = input.trim().toLowerCase();
-        // strip protocol
+        var s = input.trim().toLowerCase();
         s = s.replace(/^https?:\/\//, '');
-        // strip path, query, hash
         s = s.split('/')[0].split('?')[0].split('#')[0];
-        // strip port
         s = s.split(':')[0];
-        // strip trailing dots
         s = s.replace(/\.+$/, '');
         return s;
     }
 
-    function matchesList(domain, list) {
-        if (list.has(domain)) return true;
-        // prefix matching — check if any entry in the list is a suffix of the domain
-        // e.g. blocklist has "evil.com", domain is "sub.evil.com"
-        const parts = domain.split('.');
-        for (let i = 1; i < parts.length; i++) {
-            const parent = parts.slice(i).join('.');
-            if (list.has(parent)) return true;
+    function inList(domain, list) {
+        if (list[domain]) return true;
+        var parts = domain.split('.');
+        for (var i = 1; i < parts.length; i++) {
+            var parent = parts.slice(i).join('.');
+            if (list[parent]) return true;
         }
         return false;
     }
 
-    async function checkDomain() {
-        const input = document.getElementById('domainInput').value;
-        const resultEl = document.getElementById('result');
-        const btn = document.getElementById('checkBtn');
+    function checkDomain() {
+        var input = document.getElementById('domainInput').value;
+        var resultEl = document.getElementById('result');
+        var btn = document.getElementById('checkBtn');
 
         if (!input.trim()) {
-            resultEl.className = 'result error';
-            resultEl.textContent = 'Enter a URL or domain to check.';
+            showResult(resultEl, 'error', 'Enter a URL or domain to check.');
             return;
         }
-
-        btn.disabled = true;
-        btn.textContent = 'Checking...';
-
-        await loadBlocklist();
 
         if (!loaded) {
-            resultEl.className = 'result error';
-            resultEl.textContent = 'Could not load the blocklist. Check your connection and try again.';
-            btn.disabled = false;
-            btn.textContent = 'Check';
+            showResult(resultEl, 'error', 'Blocklist is still loading. Wait a moment and try again.');
             return;
         }
 
-        const domain = extractDomain(input);
+        var domain = extractDomain(input);
 
-        if (!domain || !domain.includes('.')) {
-            resultEl.className = 'result error';
-            resultEl.textContent = 'That doesn\'t look like a valid domain.';
-            btn.disabled = false;
-            btn.textContent = 'Check';
+        if (!domain || domain.indexOf('.') === -1) {
+            showResult(resultEl, 'error', 'That doesn\'t look like a valid domain.');
             return;
         }
 
-        if (matchesList(domain, blocklist)) {
-            resultEl.className = 'result danger';
-            resultEl.innerHTML = `<strong>⚠ Known phishing site</strong><br>${domain} is on the Sui Guardians blocklist. Do not connect your wallet to this site.`;
-        } else if (matchesList(domain, allowlist)) {
-            resultEl.className = 'result allow';
-            resultEl.innerHTML = `<strong>✓ Verified safe</strong><br>${domain} is on the Sui Guardians allowlist.`;
+        if (inList(domain, blocklist)) {
+            showResult(resultEl, 'danger', '<strong>⚠ Known phishing site</strong><br><code>' + domain + '</code> is on the Sui Guardians blocklist.<br>Do not connect your wallet to this site.');
+        } else if (inList(domain, allowlist)) {
+            showResult(resultEl, 'allow', '<strong>✓ Verified</strong><br><code>' + domain + '</code> is on the Sui Guardians allowlist.');
         } else {
-            resultEl.className = 'result unknown';
-            resultEl.innerHTML = `<strong>○ Not listed</strong><br>${domain} is not in the blocklist or allowlist. This doesn't guarantee safety — it just means Sui Guardians hasn't flagged it yet.`;
+            showResult(resultEl, 'unknown', '<strong>○ Not listed</strong><br><code>' + domain + '</code> is not in the blocklist or allowlist.<br>This doesn\'t guarantee safety — Sui Guardians hasn\'t reviewed it yet.');
         }
-
-        btn.disabled = false;
-        btn.textContent = 'Check';
     }
 
-    // enter key
-    document.getElementById('domainInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') checkDomain();
-    });
+    function showResult(el, cls, html) {
+        el.style.display = 'block';
+        el.className = 'result ' + cls;
+        el.innerHTML = html;
+    }
     </script>
 </body>
 </html>

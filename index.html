@@ -4,142 +4,365 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SuiShield — Transaction Firewall for Sui</title>
-    <meta name="description" content="SuiShield simulates every Sui transaction before you sign. See what leaves your wallet, what arrives, and whether anything looks wrong.">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%234DA2FF'/></svg>">
+    <meta name="description" content="See what a Sui transaction does before you sign it. SuiShield simulates every transaction against live chain state.">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0B0F1A;
-            color: #E8ECF4;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #0A0E1A;
+            color: #C8D1E0;
             min-height: 100vh;
+        }
+
+        nav {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            overflow: hidden;
+            justify-content: space-between;
+            padding: 1.25rem 2rem;
+            max-width: 1100px;
+            margin: 0 auto;
         }
-
-        .container {
-            text-align: center;
-            padding: 2rem;
-            max-width: 480px;
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
         }
-
-        .logo {
-            margin-bottom: 2.5rem;
-        }
-
-        .logo svg {
-            width: 80px;
-            height: 80px;
-            filter: drop-shadow(0 0 40px rgba(77, 162, 255, 0.15));
-        }
-
-        h1 {
-            font-size: 1.75rem;
+        .nav-brand svg { width: 24px; height: 30px; }
+        .nav-brand span {
+            font-size: 1.1rem;
             font-weight: 600;
-            letter-spacing: -0.02em;
-            margin-bottom: 0.75rem;
             color: #FFFFFF;
         }
-
-        .tagline {
-            font-size: 0.95rem;
-            color: #7A8BA8;
-            line-height: 1.6;
-            margin-bottom: 3rem;
-        }
-
-        .status {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1.25rem;
-            background: rgba(77, 162, 255, 0.06);
-            border: 1px solid rgba(77, 162, 255, 0.12);
-            border-radius: 100px;
-            font-size: 0.8rem;
-            color: #4DA2FF;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-        }
-
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            background: #4DA2FF;
-            border-radius: 50%;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 1; }
-        }
-
-        .links {
-            margin-top: 3rem;
+        .nav-links {
             display: flex;
-            gap: 1.5rem;
-            justify-content: center;
+            gap: 2rem;
+            align-items: center;
         }
-
-        .links a {
-            color: #4A5568;
+        .nav-links a {
+            color: #6B7A94;
             text-decoration: none;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            font-weight: 500;
             transition: color 0.2s;
         }
+        .nav-links a:hover { color: #C8D1E0; }
 
-        .links a:hover {
+        .hero {
+            text-align: center;
+            padding: 6rem 2rem 4rem;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.9rem;
+            background: rgba(77, 162, 255, 0.08);
+            border: 1px solid rgba(77, 162, 255, 0.15);
+            border-radius: 100px;
+            font-size: 0.7rem;
+            color: #4DA2FF;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+        .hero-badge .dot {
+            width: 5px; height: 5px;
+            background: #4DA2FF;
+            border-radius: 50%;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        .hero h1 {
+            font-size: 2.75rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.25rem;
+        }
+        .hero h1 .accent { color: #4DA2FF; }
+        .hero p {
+            font-size: 1.05rem;
+            line-height: 1.7;
             color: #7A8BA8;
+            max-width: 520px;
+            margin: 0 auto;
         }
 
-        .bg-glow {
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            max-width: 900px;
+            margin: 2rem auto 0;
+            padding: 0 2rem;
+        }
+        .feature {
+            padding: 2rem 1.5rem;
+        }
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(77, 162, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+        .feature-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: #4DA2FF;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .feature h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #E0E7F0;
+            margin-bottom: 0.5rem;
+        }
+        .feature p {
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: #5E6D85;
+        }
+
+        .how {
+            max-width: 620px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+        .how h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #FFFFFF;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .step {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(77, 162, 255, 0.1);
+            color: #4DA2FF;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .step-text h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #D0D8E4;
+            margin-bottom: 0.25rem;
+        }
+        .step-text p {
+            font-size: 0.8rem;
+            color: #5E6D85;
+            line-height: 1.5;
+        }
+
+        .stack {
+            max-width: 620px;
+            margin: 3rem auto;
+            padding: 0 2rem;
+        }
+        .stack h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #FFFFFF;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .stack-items {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+        .stack-item {
+            padding: 1rem 1.25rem;
+            background: rgba(255,255,255, 0.02);
+            border: 1px solid rgba(255,255,255, 0.04);
+            border-radius: 10px;
+        }
+        .stack-item .label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #4A5568;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+        }
+        .stack-item .value {
+            font-size: 0.8rem;
+            color: #9AA8BC;
+        }
+        .stack-item .value a {
+            color: #4DA2FF;
+            text-decoration: none;
+        }
+        .stack-item .value a:hover { text-decoration: underline; }
+
+        footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            border-top: 1px solid rgba(255,255,255, 0.03);
+            margin-top: 3rem;
+        }
+        footer p {
+            font-size: 0.75rem;
+            color: #3A4558;
+        }
+        footer a {
+            color: #4A5568;
+            text-decoration: none;
+        }
+        footer a:hover { color: #6B7A94; }
+
+        .glow {
             position: fixed;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(77, 162, 255, 0.04) 0%, transparent 70%);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            width: 800px; height: 800px;
+            background: radial-gradient(circle, rgba(77, 162, 255, 0.03) 0%, transparent 65%);
+            top: -200px; left: 50%;
+            transform: translateX(-50%);
             pointer-events: none;
             z-index: -1;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .features { grid-template-columns: 1fr; }
+            .stack-items { grid-template-columns: 1fr; }
+            .nav-links { gap: 1rem; }
         }
     </style>
 </head>
 <body>
-    <div class="bg-glow"></div>
-    <div class="container">
-        <div class="logo">
-            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Sui-style water drop with shield outline -->
-                <defs>
-                    <linearGradient id="dropGrad" x1="40" y1="8" x2="40" y2="72" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="#6FBCF0"/>
-                        <stop offset="100%" stop-color="#4DA2FF"/>
-                    </linearGradient>
-                </defs>
-                <!-- Shield-shaped water drop -->
-                <path d="M40 8 C40 8, 18 30, 18 46 C18 59, 27.5 70, 40 72 C52.5 70, 62 59, 62 46 C62 30, 40 8, 40 8Z" 
-                      fill="url(#dropGrad)" opacity="0.9"/>
-                <!-- Inner shield check mark -->
-                <path d="M30 44 L37 51 L52 36" 
-                      stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.9"/>
+    <div class="glow"></div>
+
+    <nav>
+        <div class="nav-brand">
+            <svg viewBox="0 0 300 383.5" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M240.1,159.9c15.6,19.6,25,44.5,25,71.5s-9.6,52.6-25.7,72.4l-1.4,1.7l-0.4-2.2c-0.3-1.8-0.7-3.7-1.1-5.6c-8-35.3-34.2-65.6-77.4-90.2c-29.1-16.5-45.8-36.4-50.2-59c-2.8-14.6-0.7-29.3,3.3-41.9c4.1-12.6,10.1-23.1,15.2-29.4l16.8-20.5c2.9-3.6,8.5-3.6,11.4,0L240.1,159.9L240.1,159.9z M266.6,139.4L154.2,2c-2.1-2.6-6.2-2.6-8.3,0L33.4,139.4l-0.4,0.5C12.4,165.6,0,198.2,0,233.7c0,82.7,67.2,149.8,150,149.8c82.8,0,150-67.1,150-149.8c0-35.5-12.4-68.1-33.1-93.8L266.6,139.4L266.6,139.4z M60.3,159.5l10-12.3l0.3,2.3c0.2,1.8,0.5,3.6,0.9,5.4c6.5,34.1,29.8,62.6,68.6,84.6c33.8,19.2,53.4,41.3,59.1,65.6c2.4,10.1,2.8,20.1,1.8,28.8l-0.1,0.5l-0.5,0.2c-15.2,7.4-32.4,11.6-50.5,11.6c-63.5,0-115-51.4-115-114.8C34.9,204.2,44.4,179.1,60.3,159.5L60.3,159.5z" fill="#4DA2FF"/>
             </svg>
+            <span>SuiShield</span>
         </div>
-        <h1>SuiShield</h1>
-        <p class="tagline">Transaction firewall for Sui.<br>Simulate before you sign.</p>
-        <div class="status">
-            <span class="status-dot"></span>
+        <div class="nav-links">
+            <a href="https://github.com/suishield/suishield.io">GitHub</a>
+            <a href="https://x.com/mehvetero">Updates</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="hero-badge">
+            <span class="dot"></span>
             Under development
         </div>
-        <div class="links">
-            <a href="https://github.com/suishield/suishield.io">GitHub</a>
-            <a href="https://x.com/mehvetero">Contact</a>
+        <h1>Know what you're<br>signing on <span class="accent">Sui</span></h1>
+        <p>SuiShield simulates every transaction against live chain state and shows you what leaves your wallet, what arrives, and whether anything looks wrong.</p>
+    </section>
+
+    <section class="features">
+        <div class="feature">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <h3>Transaction preview</h3>
+            <p>Dry-run every transaction before signing. See coins in and out, objects moved, contracts called.</p>
         </div>
-    </div>
+        <div class="feature">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h3>Risk detection</h3>
+            <p>Flags known drainer patterns, abnormal outflows, and unverified contracts before your wallet sees the request.</p>
+        </div>
+        <div class="feature">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <h3>Phishing warnings</h3>
+            <p>Connected sites checked against the Sui Guardians blocklist on every page load. Warns before you connect.</p>
+        </div>
+    </section>
+
+    <section class="how">
+        <h2>How it works</h2>
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">
+                <h4>dApp requests a signature</h4>
+                <p>You interact with any Sui dApp — swap, stake, mint, whatever.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">
+                <h4>SuiShield intercepts</h4>
+                <p>Before your wallet sees it, the transaction is simulated using Sui's native simulateTransaction.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">
+                <h4>You see what happens</h4>
+                <p>Balance changes, object mutations, contract calls — broken down so you understand what you're approving.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-text">
+                <h4>Approve or reject</h4>
+                <p>Looks right — approve, goes to your wallet. Looks wrong — reject, nothing was sent.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="stack">
+        <h2>Built on</h2>
+        <div class="stack-items">
+            <div class="stack-item">
+                <div class="label">Simulation</div>
+                <div class="value"><a href="https://docs.sui.io/guides/developer/sui-101/simulating-refs">simulateTransaction</a> — Sui SDK</div>
+            </div>
+            <div class="stack-item">
+                <div class="label">Phishing data</div>
+                <div class="value"><a href="https://github.com/suiet/guardians">Sui Guardians</a> — 46K+ domains</div>
+            </div>
+            <div class="stack-item">
+                <div class="label">Wallets</div>
+                <div class="value"><a href="https://docs.sui.io/standards/wallet-standard">Wallet Standard</a> — works with any</div>
+            </div>
+            <div class="stack-item">
+                <div class="label">Runtime</div>
+                <div class="value">Client-side only — no backend</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p><a href="https://github.com/suishield/suishield.io">GitHub</a> &middot; <a href="https://github.com/mehvetero">mehvetero</a></p>
+    </footer>
 </body>
 </html>

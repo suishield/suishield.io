@@ -312,30 +312,59 @@
             line-height: 1.5;
         }
         .result.hidden { display: none; }
-        .result.safe {
-            background: #F0FFF4;
-            border: 1px solid #C6F6D5;
-            color: #276749;
-        }
         .result.danger {
-            background: #FFF5F5;
-            border: 1px solid #FED7D7;
-            color: #9B2C2C;
+            background: #DC2626;
+            border: 2px solid #B91C1C;
+            color: #FFFFFF;
+            font-size: 0.9rem;
+        }
+        .result.danger strong {
+            font-size: 1.05rem;
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+        .result.danger code {
+            background: rgba(0,0,0,0.15);
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            color: #FFFFFF;
         }
         .result.allow {
-            background: #F0FFF4;
-            border: 1px solid #C6F6D5;
-            color: #276749;
+            background: #16A34A;
+            border: 2px solid #15803D;
+            color: #FFFFFF;
+        }
+        .result.allow strong {
+            font-size: 1.05rem;
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+        .result.allow code {
+            background: rgba(0,0,0,0.1);
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            color: #FFFFFF;
         }
         .result.unknown {
-            background: #FFFFF0;
-            border: 1px solid #FEFCBF;
-            color: #744210;
+            background: #D97706;
+            border: 2px solid #B45309;
+            color: #FFFFFF;
+        }
+        .result.unknown strong {
+            font-size: 1.05rem;
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+        .result.unknown code {
+            background: rgba(0,0,0,0.1);
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            color: #FFFFFF;
         }
         .result.error {
-            background: #FFF5F5;
-            border: 1px solid #FED7D7;
-            color: #9B2C2C;
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+            color: #991B1B;
         }
         .checker-stats {
             margin-top: 0.75rem;
@@ -562,11 +591,11 @@
         }
 
         if (inList(domain, blocklist)) {
-            showResult(resultEl, 'danger', '<strong>⚠ Known phishing site</strong><br><code>' + domain + '</code> is on the Sui Guardians blocklist.<br>Do not connect your wallet to this site.');
+            showResult(resultEl, 'danger', '<strong>🚫 PHISHING — DO NOT CONNECT</strong><br><code>' + domain + '</code> is a confirmed scam site. Connecting your wallet here will result in loss of funds. Leave immediately.');
         } else if (inList(domain, allowlist)) {
-            showResult(resultEl, 'allow', '<strong>✓ Verified</strong><br><code>' + domain + '</code> is on the Sui Guardians allowlist.');
+            showResult(resultEl, 'allow', '<strong>✅ Verified safe</strong><br><code>' + domain + '</code> is a recognized Sui ecosystem site. Verified by Sui Guardians across 46,000+ reviewed domains.');
         } else {
-            showResult(resultEl, 'unknown', '<strong>○ Not listed</strong><br><code>' + domain + '</code> is not in the blocklist or allowlist.<br>This doesn\'t guarantee safety — Sui Guardians hasn\'t reviewed it yet.');
+            showResult(resultEl, 'unknown', '<strong>⚠ Not reviewed yet</strong><br><code>' + domain + '</code> has not been reviewed by Sui Guardians. This does not mean it\'s safe — exercise caution and verify the URL carefully before connecting your wallet.');
         }
     }
 

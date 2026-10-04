@@ -236,10 +236,118 @@
         footer a { color: #4A5568; text-decoration: none; }
         footer a:hover { color: #2D3748; }
 
+        /* --- CHECKER --- */
+        .checker-section {
+            background: #FFFFFF;
+            padding: 0 2rem 2rem;
+        }
+        .checker {
+            max-width: 520px;
+            margin: 0 auto;
+            background: #F7FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 14px;
+            padding: 2rem;
+        }
+        .checker h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2D3748;
+            margin-bottom: 0.35rem;
+        }
+        .checker-sub {
+            font-size: 0.78rem;
+            color: #718096;
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+        .checker-sub a { color: #3182CE; text-decoration: none; }
+        .checker-sub a:hover { text-decoration: underline; }
+        .checker-input-wrap {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .checker-input-wrap input {
+            flex: 1;
+            padding: 0.65rem 0.9rem;
+            border: 1px solid #CBD5E0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            color: #2D3748;
+            background: #FFFFFF;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .checker-input-wrap input:focus {
+            border-color: #4DA2FF;
+        }
+        .checker-input-wrap input::placeholder {
+            color: #A0AEC0;
+        }
+        .checker-input-wrap button {
+            padding: 0.65rem 1.25rem;
+            background: #4DA2FF;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .checker-input-wrap button:hover { background: #3B8DE8; }
+        .checker-input-wrap button:disabled {
+            background: #A0AEC0;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+        .result.hidden { display: none; }
+        .result.safe {
+            background: #F0FFF4;
+            border: 1px solid #C6F6D5;
+            color: #276749;
+        }
+        .result.danger {
+            background: #FFF5F5;
+            border: 1px solid #FED7D7;
+            color: #9B2C2C;
+        }
+        .result.allow {
+            background: #F0FFF4;
+            border: 1px solid #C6F6D5;
+            color: #276749;
+        }
+        .result.unknown {
+            background: #FFFFF0;
+            border: 1px solid #FEFCBF;
+            color: #744210;
+        }
+        .result.error {
+            background: #FFF5F5;
+            border: 1px solid #FED7D7;
+            color: #9B2C2C;
+        }
+        .checker-stats {
+            margin-top: 0.75rem;
+            font-size: 0.7rem;
+            color: #A0AEC0;
+        }
+
         @media (max-width: 640px) {
             .hero h1 { font-size: 1.7rem; }
             .cards { grid-template-columns: 1fr; }
             .built-on { grid-template-columns: 1fr; }
+            .checker-input-wrap { flex-direction: column; }
         }
     </style>
 </head>
@@ -262,6 +370,19 @@
             <p>SuiShield sits between the dApp and your wallet. Every signing request gets simulated against live chain state — you see what moves, then you decide.</p>
             <div class="badge"><span class="dot"></span> In development</div>
         </section>
+    </div>
+
+    <div class="checker-section">
+        <div class="checker">
+            <h2>Check a site</h2>
+            <p class="checker-sub">Paste a URL or domain — checked against 46,000+ known phishing sites from <a href="https://github.com/suiet/guardians" target="_blank">Sui Guardians</a>.</p>
+            <div class="checker-input-wrap">
+                <input type="text" id="domainInput" placeholder="e.g. app.cetus.zone or https://suiswap-airdrop.com" spellcheck="false" autocomplete="off">
+                <button id="checkBtn" onclick="checkDomain()">Check</button>
+            </div>
+            <div id="result" class="result hidden"></div>
+            <div id="stats" class="checker-stats"></div>
+        </div>
     </div>
 
     <div class="mid">
@@ -347,5 +468,106 @@
     <footer>
         <p><a href="https://github.com/suishield/suishield.io">suishield</a> · <a href="https://github.com/mehvetero">mehvetero</a></p>
     </footer>
+
+    <script>
+    let blocklist = null;
+    let allowlist = null;
+    let loaded = false;
+
+    async function loadBlocklist() {
+        if (loaded) return;
+        const statsEl = document.getElementById('stats');
+        statsEl.textContent = 'Loading blocklist...';
+        try {
+            const res = await fetch('https://raw.githubusercontent.com/suiet/guardians/main/dist/domain-list.json');
+            const data = await res.json();
+            blocklist = new Set(data.blocklist || []);
+            allowlist = new Set(data.allowlist || []);
+            loaded = true;
+            statsEl.textContent = `${blocklist.size.toLocaleString()} phishing domains loaded from Sui Guardians`;
+        } catch (e) {
+            statsEl.textContent = 'Failed to load blocklist. Try again.';
+        }
+    }
+
+    function extractDomain(input) {
+        let s = input.trim().toLowerCase();
+        // strip protocol
+        s = s.replace(/^https?:\/\//, '');
+        // strip path, query, hash
+        s = s.split('/')[0].split('?')[0].split('#')[0];
+        // strip port
+        s = s.split(':')[0];
+        // strip trailing dots
+        s = s.replace(/\.+$/, '');
+        return s;
+    }
+
+    function matchesList(domain, list) {
+        if (list.has(domain)) return true;
+        // prefix matching — check if any entry in the list is a suffix of the domain
+        // e.g. blocklist has "evil.com", domain is "sub.evil.com"
+        const parts = domain.split('.');
+        for (let i = 1; i < parts.length; i++) {
+            const parent = parts.slice(i).join('.');
+            if (list.has(parent)) return true;
+        }
+        return false;
+    }
+
+    async function checkDomain() {
+        const input = document.getElementById('domainInput').value;
+        const resultEl = document.getElementById('result');
+        const btn = document.getElementById('checkBtn');
+
+        if (!input.trim()) {
+            resultEl.className = 'result error';
+            resultEl.textContent = 'Enter a URL or domain to check.';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Checking...';
+
+        await loadBlocklist();
+
+        if (!loaded) {
+            resultEl.className = 'result error';
+            resultEl.textContent = 'Could not load the blocklist. Check your connection and try again.';
+            btn.disabled = false;
+            btn.textContent = 'Check';
+            return;
+        }
+
+        const domain = extractDomain(input);
+
+        if (!domain || !domain.includes('.')) {
+            resultEl.className = 'result error';
+            resultEl.textContent = 'That doesn\'t look like a valid domain.';
+            btn.disabled = false;
+            btn.textContent = 'Check';
+            return;
+        }
+
+        if (matchesList(domain, blocklist)) {
+            resultEl.className = 'result danger';
+            resultEl.innerHTML = `<strong>⚠ Known phishing site</strong><br>${domain} is on the Sui Guardians blocklist. Do not connect your wallet to this site.`;
+        } else if (matchesList(domain, allowlist)) {
+            resultEl.className = 'result allow';
+            resultEl.innerHTML = `<strong>✓ Verified safe</strong><br>${domain} is on the Sui Guardians allowlist.`;
+        } else {
+            resultEl.className = 'result unknown';
+            resultEl.innerHTML = `<strong>○ Not listed</strong><br>${domain} is not in the blocklist or allowlist. This doesn't guarantee safety — it just means Sui Guardians hasn't flagged it yet.`;
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Check';
+    }
+
+    // enter key
+    document.getElementById('domainInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') checkDomain();
+    });
+    </script>
 </body>
 </html>

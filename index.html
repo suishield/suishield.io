@@ -168,9 +168,9 @@
 
             <!-- CONTRACT PANEL -->
             <div id="panel-contract" class="tool-panel">
-                <p class="desc">Look up any Sui object or contract address. Reads directly from the Sui network — no third party involved.</p>
+                <p class="desc">Paste any Sui address — contract, object, or wallet. Reads directly from the network with no third party.</p>
                 <div class="input-row">
-                    <input type="text" id="contractInput" placeholder="0x..." spellcheck="false" autocomplete="off">
+                    <input type="text" id="contractInput" placeholder="0x... (contract, object, or wallet address)" spellcheck="false" autocomplete="off">
                     <button id="contractBtn" onclick="checkContract()">Lookup</button>
                 </div>
                 <div id="contractResult" class="result"></div>
@@ -291,77 +291,148 @@
         }
     }
 
-    /* ---------- CONTRACT LOOKUP ---------- */
+    /* ---------- CONTRACT / ADDRESS LOOKUP ---------- */
     function checkContract() {
         var input = document.getElementById('contractInput').value.trim();
         var el = document.getElementById('contractResult');
         var detail = document.getElementById('contractDetail');
         detail.style.display = 'none';
 
-        if (!input) { show(el, 'error', 'Enter a Sui object address (0x...).'); return; }
+        if (!input) { show(el, 'error', 'Enter a Sui address (0x...).'); return; }
         if (!input.startsWith('0x') || input.length < 10) { show(el, 'error', 'Not a valid Sui address. Must start with 0x.'); return; }
 
         show(el, 'info', 'Looking up on Sui mainnet...');
         document.getElementById('contractBtn').disabled = true;
 
+        // try as object first
+        rpc('sui_getObject', [input, {showType:true, showOwner:true, showContent:true}], function(err, result) {
+            if (!err && result && result.data) {
+                showObjectResult(el, detail, result.data, input);
+                document.getElementById('contractBtn').disabled = false;
+            } else {
+                // not an object — try as wallet address
+                rpc('suix_getAllBalances', [input], function(err2, balances) {
+                    document.getElementById('contractBtn').disabled = false;
+                    if (!err2 && balances && balances.length > 0) {
+                        showWalletResult(el, detail, balances, input);
+                    } else if (!err2 && balances && balances.length === 0) {
+                        show(el, 'unknown', '<strong>Empty wallet</strong>This address exists but holds no tokens.');
+                        detail.style.display = 'none';
+                    } else {
+                        show(el, 'unknown', '<strong>Not found</strong>This address was not found as an object or wallet on Sui mainnet.');
+                        detail.style.display = 'none';
+                    }
+                });
+            }
+        });
+    }
+
+    function rpc(method, params, cb) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', SUI_RPC, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.onload = function() {
-            document.getElementById('contractBtn').disabled = false;
             if (xhr.status === 200) {
-                var resp = JSON.parse(xhr.responseText);
-                if (resp.error) {
-                    show(el, 'error', 'RPC error: ' + (resp.error.message || 'unknown'));
-                    return;
-                }
-                var obj = resp.result;
-                if (!obj || !obj.data) {
-                    show(el, 'unknown', '<strong>Not found</strong>This address does not exist on Sui mainnet.');
-                    return;
-                }
-                var d = obj.data;
-                var objType = d.type || 'unknown';
-                var owner = d.owner;
-                var ownerStr = 'unknown';
-                if (owner) {
-                    if (typeof owner === 'string') ownerStr = owner;
-                    else if (owner.AddressOwner) ownerStr = owner.AddressOwner;
-                    else if (owner.ObjectOwner) ownerStr = owner.ObjectOwner;
-                    else if (owner.Shared) ownerStr = 'Shared object';
-                    else if (owner === 'Immutable' || owner.Immutable !== undefined) ownerStr = 'Immutable';
-                }
-                var isPackage = objType === 'package';
-                var isShared = ownerStr === 'Shared object';
-                var digest = d.digest || '';
-                var version = d.version || '';
+                var r = JSON.parse(xhr.responseText);
+                if (r.error) cb(r.error.message, null);
+                else cb(null, r.result);
+            } else cb('HTTP ' + xhr.status, null);
+        };
+        xhr.onerror = function() { cb('Network error', null); };
+        xhr.send(JSON.stringify({jsonrpc:'2.0', id:1, method:method, params:params}));
+    }
 
-                show(el, 'info', '<strong>ℹ Object found</strong>');
+    function showObjectResult(el, detail, d, addr) {
+        var objType = d.type || 'unknown';
+        var owner = d.owner;
+        var ownerStr = 'unknown';
+        if (owner) {
+            if (typeof owner === 'string') ownerStr = owner;
+            else if (owner.AddressOwner) ownerStr = owner.AddressOwner;
+            else if (owner.ObjectOwner) ownerStr = owner.ObjectOwner;
+            else if (owner.Shared) ownerStr = 'Shared object';
+            else if (owner === 'Immutable' || owner.Immutable !== undefined) ownerStr = 'Immutable';
+        }
+        var isPackage = objType === 'package';
+        var isShared = ownerStr === 'Shared object';
+        var version = d.version || '';
+        var digest = d.digest || '';
 
-                var rows = '';
-                rows += '<tr><td>Type</td><td>' + escHtml(objType.length > 60 ? objType.substring(0,60) + '...' : objType) + '</td></tr>';
-                rows += '<tr><td>Owner</td><td>' + escHtml(ownerStr.length > 44 ? ownerStr.substring(0,20) + '...' + ownerStr.slice(-10) : ownerStr);
-                if (isShared) rows += ' <span class="tag tag-warn">shared</span>';
-                if (ownerStr === 'Immutable') rows += ' <span class="tag tag-safe">immutable</span>';
-                rows += '</td></tr>';
-                if (isPackage) rows += '<tr><td>Kind</td><td>Published package <span class="tag tag-info">package</span></td></tr>';
-                rows += '<tr><td>Version</td><td>' + escHtml(version) + '</td></tr>';
-                rows += '<tr><td>Digest</td><td style="font-size:.72rem">' + escHtml(digest) + '</td></tr>';
+        // extract balance if it's a Coin
+        var balance = null;
+        if (d.content && d.content.fields && d.content.fields.balance) {
+            balance = d.content.fields.balance;
+        }
 
-                detail.innerHTML = '<table>' + rows + '</table>';
-                detail.style.display = 'block';
-            } else {
-                show(el, 'error', 'HTTP ' + xhr.status);
+        show(el, 'info', '<strong>ℹ Object found</strong>');
+
+        var rows = '';
+        rows += row('Type', shortType(objType));
+        rows += row('Owner', shortAddr(ownerStr) + ownerTag(ownerStr, isShared));
+        if (isPackage) rows += row('Kind', 'Published package <span class="tag tag-info">package</span>');
+        if (balance !== null) {
+            var balNum = parseInt(balance) / 1e9;
+            rows += row('Balance', balNum.toLocaleString(undefined, {maximumFractionDigits:4}) + ' SUI');
+        }
+        rows += row('Version', version);
+        if (version > 1 && isPackage) rows += row('Upgrades', (version - 1) + ' upgrade(s) <span class="tag tag-warn">upgradeable</span>');
+        if (version == 1 && isPackage) rows += row('Upgrades', 'None <span class="tag tag-safe">original</span>');
+        rows += row('Digest', '<span style="font-size:.72rem">' + escHtml(digest) + '</span>');
+
+        detail.innerHTML = '<table>' + rows + '</table>';
+        detail.style.display = 'block';
+
+        // fetch creation timestamp
+        rpc('sui_getObject', [addr, {showPreviousTransaction:true}], function(err, r2) {
+            if (!err && r2 && r2.data && r2.data.previousTransaction) {
+                rpc('sui_getTransactionBlock', [r2.data.previousTransaction, {showInput:false}], function(err3, tx) {
+                    if (!err3 && tx && tx.timestampMs) {
+                        var date = new Date(parseInt(tx.timestampMs));
+                        var dateStr = date.toISOString().split('T')[0];
+                        var daysAgo = Math.floor((Date.now() - date.getTime()) / 86400000);
+                        var ageTag = daysAgo < 30 ? '<span class="tag tag-warn">' + daysAgo + ' days old</span>' : '<span class="tag tag-safe">' + daysAgo + ' days old</span>';
+                        var existing = detail.querySelector('table');
+                        if (existing) {
+                            var newRow = document.createElement('tr');
+                            newRow.innerHTML = '<td>Last activity</td><td>' + dateStr + ' ' + ageTag + '</td>';
+                            existing.insertBefore(newRow, existing.children[existing.children.length - 1]);
+                        }
+                    }
+                });
             }
-        };
-        xhr.onerror = function() {
-            document.getElementById('contractBtn').disabled = false;
-            show(el, 'error', 'Network error — check your connection.');
-        };
-        xhr.send(JSON.stringify({
-            jsonrpc: '2.0', id: 1, method: 'sui_getObject',
-            params: [input, { showType: true, showOwner: true, showContent: false }]
-        }));
+        });
+    }
+
+    function showWalletResult(el, detail, balances, addr) {
+        show(el, 'info', '<strong>💰 Wallet found</strong>');
+
+        var totalUsd = 0;
+        var rows = '';
+        for (var i = 0; i < balances.length; i++) {
+            var b = balances[i];
+            var coinType = b.coinType || '';
+            var symbol = coinType.split('::').pop() || '?';
+            var raw = parseInt(b.totalBalance || '0');
+            var decimals = 9; // default SUI decimals
+            if (symbol === 'USDC' || symbol === 'USDT') decimals = 6;
+            var amount = raw / Math.pow(10, decimals);
+            var amountStr = amount.toLocaleString(undefined, {maximumFractionDigits: 4});
+            rows += row(symbol, amountStr + ' <span style="color:#A0AEC0;font-size:.72rem">' + shortType(coinType) + '</span>');
+        }
+        rows += row('Tokens', balances.length + ' type(s)');
+        rows += row('Address', '<span style="font-size:.72rem">' + escHtml(addr) + '</span>');
+
+        detail.innerHTML = '<table>' + rows + '</table>';
+        detail.style.display = 'block';
+    }
+
+    function row(label, val) { return '<tr><td>' + label + '</td><td>' + val + '</td></tr>'; }
+    function shortAddr(s) { return s.length > 44 ? escHtml(s.substring(0,12) + '...' + s.slice(-8)) : escHtml(s); }
+    function shortType(s) { return s.length > 60 ? escHtml(s.substring(0,50) + '...') : escHtml(s); }
+    function ownerTag(s, shared) {
+        if (shared) return ' <span class="tag tag-warn">shared</span>';
+        if (s === 'Immutable') return ' <span class="tag tag-safe">immutable</span>';
+        return '';
     }
 
     function show(el, cls, html) { el.style.display = 'block'; el.className = 'result ' + cls; el.innerHTML = html; }

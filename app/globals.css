@@ -144,3 +144,17 @@ a:hover { text-decoration: underline; }
 @media (max-width: 640px) {
   .input-row { flex-direction: column; }
 }
+
+/* Lookup detail table */
+.lookup-detail { margin-top: 1rem; animation: slideIn 0.3s ease; }
+.lookup-detail table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.lookup-detail td { padding: 0.45rem 0.6rem; border-bottom: 1px solid #edf2f7; }
+.lookup-detail td:first-child { color: #718096; width: 100px; font-weight: 500; }
+.lookup-detail td:last-child { color: #2d3748; word-break: break-all; }
+.tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.4rem; }
+.tag-safe { background: #dcfce7; color: #166534; }
+.tag-warn { background: #fef3c7; color: #92400e; }
+.tag-danger { background: #fee2e2; color: #991b1b; }
+.tag-info { background: #dbeafe; color: #1e40af; }
+.result.info { background: #2563eb; border: 2px solid #1d4ed8; color: #fff; }
+.result.info code { background: rgba(0,0,0,0.1); color: #fff; }

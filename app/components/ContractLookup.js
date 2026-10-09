@@ -1,19 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
-var SUI_RPC = 'https://sui-mainnet.blockvision.org/v1/3IQrIRW5Ge87dPpT9o5XEebkSG7'
-
-function rpc(method, params) {
-  return fetch(SUI_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
-  }).then(r => r.json()).then(r => {
-    if (r.error) throw new Error(r.error.message)
-    return r.result
-  })
-}
+import { inspectObject, getWalletBalances, getTransactionTimestamp } from '../lib/sui'
 
 function shortAddr(s) {
   if (!s || s.length <= 20) return s
@@ -41,9 +29,9 @@ export default function ContractLookup() {
     setStatus({ type: 'info', text: 'Looking up on Sui mainnet...' })
 
     try {
-      var obj = await rpc('sui_getObject', [addr, { showType: true, showOwner: true, showContent: true, showPreviousTransaction: true }])
+      var obj = await inspectObject(addr)
       if (obj && obj.data) {
-        await showObject(obj.data, addr)
+        await showObject(obj.data)
       } else {
         await tryWallet(addr)
       }
@@ -53,7 +41,7 @@ export default function ContractLookup() {
     setBusy(false)
   }
 
-  async function showObject(d, addr) {
+  async function showObject(d) {
     var objType = d.type || 'unknown'
     var owner = d.owner
     var ownerStr = 'unknown'
@@ -82,12 +70,11 @@ export default function ContractLookup() {
     if (isPackage && version > 1) r.push({ label: 'Upgrades', value: (version - 1) + ' upgrade(s)', tag: 'upgradeable' })
     if (isPackage && version == 1) r.push({ label: 'Upgrades', value: 'None', tag: 'original' })
 
-    // fetch timestamp
     if (d.previousTransaction) {
       try {
-        var tx = await rpc('sui_getTransactionBlock', [d.previousTransaction, { showInput: false }])
-        if (tx && tx.timestampMs) {
-          var date = new Date(parseInt(tx.timestampMs))
+        var ts = await getTransactionTimestamp(d.previousTransaction)
+        if (ts) {
+          var date = new Date(ts)
           var dateStr = date.toISOString().split('T')[0]
           var daysAgo = Math.floor((Date.now() - date.getTime()) / 86400000)
           r.push({ label: 'Last activity', value: dateStr, tag: daysAgo < 30 ? 'recent' : 'aged', tagText: daysAgo + 'd ago' })
@@ -96,14 +83,13 @@ export default function ContractLookup() {
     }
 
     r.push({ label: 'Digest', value: d.digest || '', small: true })
-
     setStatus({ type: 'info', title: 'ℹ Object found' })
     setRows(r)
   }
 
   async function tryWallet(addr) {
     try {
-      var balances = await rpc('suix_getAllBalances', [addr])
+      var balances = await getWalletBalances(addr)
       if (balances && balances.length > 0) {
         var r = []
         for (var i = 0; i < balances.length; i++) {
@@ -145,7 +131,7 @@ export default function ContractLookup() {
     <div>
       <p className="tool-desc">
         Paste any Sui address — contract, object, or wallet.
-        Reads directly from the network.
+        Reads directly from the network via the official Sui SDK.
       </p>
       <div className="input-row">
         <input

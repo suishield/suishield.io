@@ -158,3 +158,7 @@ a:hover { text-decoration: underline; }
 .tag-info { background: #dbeafe; color: #1e40af; }
 .result.info { background: #2563eb; border: 2px solid #1d4ed8; color: #fff; }
 .result.info code { background: rgba(0,0,0,0.1); color: #fff; }
+
+/* Wallet connect */
+.nav-links { display: flex; align-items: center; gap: 1rem; }
+.connect-btn { font-family: inherit !important; }

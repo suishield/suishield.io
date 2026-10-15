@@ -1,5 +1,7 @@
 'use client'
 
+import ConnectButton from './ConnectButton'
+
 export default function Nav() {
   return (
     <nav className="nav">
@@ -11,6 +13,7 @@ export default function Nav() {
       </a>
       <div className="nav-links">
         <a href="https://github.com/suishield/suishield.io" target="_blank" rel="noreferrer">GitHub</a>
+        <ConnectButton />
       </div>
     </nav>
   )

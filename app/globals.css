@@ -162,3 +162,27 @@ a:hover { text-decoration: underline; }
 /* Wallet connect */
 .nav-links { display: flex; align-items: center; gap: 1rem; }
 .connect-btn { font-family: inherit !important; }
+
+/* TX Simulator */
+.sender-row { margin-bottom: 0.75rem; }
+.sender-row input { width: 100%; padding: 0.6rem 0.85rem; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.82rem; font-family: inherit; color: #2d3748; background: #fff; outline: none; }
+.sender-row input:focus { border-color: #4da2ff; box-shadow: 0 0 0 3px rgba(77,162,255,0.08); }
+.sender-row input::placeholder { color: #a0aec0; }
+
+.tx-input textarea { width: 100%; padding: 0.75rem 0.9rem; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.78rem; font-family: 'SF Mono', 'Fira Code', monospace; color: #2d3748; background: #fff; outline: none; resize: vertical; min-height: 72px; transition: border-color 0.2s; }
+.tx-input textarea:focus { border-color: #4da2ff; box-shadow: 0 0 0 3px rgba(77,162,255,0.08); }
+.tx-input textarea::placeholder { color: #a0aec0; font-family: inherit; }
+
+.tx-btn { width: 100%; padding: 0.75rem; background: #4da2ff; color: #fff; border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 600; font-family: inherit; cursor: pointer; margin-top: 0.75rem; transition: all 0.2s; }
+.tx-btn:hover { background: #3b8de8; transform: translateY(-1px); box-shadow: 0 2px 12px rgba(77,162,255,0.25); }
+.tx-btn:disabled { background: #a0aec0; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.sim-result { margin-top: 1.25rem; animation: slideIn 0.3s ease; }
+.sim-section { margin-top: 1rem; }
+.sim-section h4 { font-size: 0.75rem; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.sim-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.sim-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid #edf2f7; }
+.sim-table td:first-child { color: #718096; width: 120px; font-weight: 500; }
+.sim-table td:last-child { color: #2d3748; word-break: break-all; }
+.sim-table .neg { color: #dc2626; font-weight: 600; }
+.sim-table .pos { color: #16a34a; font-weight: 600; }

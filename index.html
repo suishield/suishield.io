@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuiShield — Transaction Firewall for Sui</title>
+    <meta name="description" content="See what a Sui transaction does before you sign it. Domain check, address lookup, and transaction simulation — all client-side.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 300 384' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%234DA2FF' d='M240.1,159.9c15.6,19.6,25,44.5,25,71.5s-9.6,52.6-25.7,72.4l-1.4,1.7-.4-2.2c-.3-1.8-.7-3.7-1.1-5.6-8-35.3-34.2-65.6-77.4-90.2-29.1-16.5-45.8-36.4-50.2-59-2.8-14.6-.7-29.3,3.3-41.9,4.1-12.6,10.1-23.1,15.2-29.4l16.8-20.5c2.9-3.6,8.5-3.6,11.4,0L240.1,159.9zM266.6,139.4L154.2,2c-2.1-2.6-6.2-2.6-8.3,0L33.4,139.4l-.4.5C12.4,165.6,0,198.2,0,233.7c0,82.7,67.2,149.8,150,149.8s150-67.1,150-149.8c0-35.5-12.4-68.1-33.1-93.8L266.6,139.4zM60.3,159.5l10-12.3.3,2.3c.2,1.8.5,3.6.9,5.4,6.5,34.1,29.8,62.6,68.6,84.6,33.8,19.2,53.4,41.3,59.1,65.6,2.4,10.1,2.8,20.1,1.8,28.8l-.1.5-.5.2c-15.2,7.4-32.4,11.6-50.5,11.6-63.5,0-115-51.4-115-114.8C34.9,204.2,44.4,179.1,60.3,159.5z'/%3E%3C/svg%3E">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box}
+
+        body{font-family:'Inter',-apple-system,sans-serif;background:#fff;color:#2d3748;min-height:100vh;-webkit-font-smoothing:antialiased}
+        ::selection{background:rgba(77,162,255,.15);color:#1a202c}
+        a{color:#3182ce;text-decoration:none;transition:color .15s}
+        a:hover{color:#2563eb}
+
+        .nav{display:flex;align-items:center;justify-content:space-between;padding:1.15rem 2rem;max-width:960px;margin:0 auto}
+        .nav-brand{display:flex;align-items:center;gap:.55rem;text-decoration:none}
+        .nav-brand svg{width:22px;height:28px;transition:transform .3s ease}
+        .nav-brand:hover svg{transform:rotate(-8deg) scale(1.08)}
+        .nav-brand span{font-size:1.05rem;font-weight:700;color:#1a202c;letter-spacing:-.01em}
+        .nav-links a{color:#718096;font-size:.82rem;font-weight:500;text-decoration:none;transition:color .15s}
+        .nav-links a:hover{color:#2d3748}
+
+        .hero{text-align:center;padding:4.5rem 2rem 2.5rem;max-width:620px;margin:0 auto;animation:fadeUp .55s cubic-bezier(.16,1,.3,1)}
+        .hero h1{font-size:2.35rem;font-weight:700;color:#1a202c;line-height:1.18;letter-spacing:-.025em;margin-bottom:1.1rem}
+        .hero p{font-size:1.02rem;line-height:1.72;color:#718096}
+        .badge{display:inline-flex;align-items:center;gap:7px;margin-top:1.6rem;padding:.35rem 1rem;background:#ebf4ff;border-radius:20px;font-size:.72rem;font-weight:500;color:#3182ce;letter-spacing:.04em;transition:background .2s}
+        .badge:hover{background:#d6e8ff}
+        .badge .dot{width:5px;height:5px;background:#3182ce;border-radius:50%;animation:blink 2.4s ease-in-out infinite}
+
+        .tool-section{padding:1.5rem 2rem 3.5rem;animation:fadeUp .7s cubic-bezier(.16,1,.3,1) .08s both}
+        .tool-box{max-width:560px;margin:0 auto;background:#f7fafc;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:box-shadow .3s}
+        .tool-box:focus-within{box-shadow:0 4px 20px rgba(77,162,255,.08)}
+        .tool-tabs{display:flex;border-bottom:1px solid #e2e8f0}
+        .tool-tab{flex:1;padding:.85rem 1rem;text-align:center;font-size:.82rem;font-weight:600;color:#a0aec0;cursor:pointer;transition:all .25s cubic-bezier(.16,1,.3,1);position:relative;background:transparent;border:none;font-family:inherit;letter-spacing:-.01em}
+        .tool-tab:hover{color:#4a5568;background:rgba(77,162,255,.03)}
+        .tool-tab.active{color:#3182ce;background:#fff}
+        .tool-tab.active::after{content:'';position:absolute;bottom:-1px;left:18%;right:18%;height:2px;background:#4da2ff;border-radius:2px 2px 0 0}
+        .tool-tab svg{vertical-align:-2px;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        .tool-panel{padding:1.75rem;animation:fadeIn .25s ease}
+        .tool-desc{font-size:.78rem;color:#718096;margin-bottom:1.25rem;line-height:1.55}
+        .tool-desc a{color:#3182ce;font-weight:500}
+
+        .input-row{display:flex;gap:.5rem}
+        .input-row input,.sender-row input{flex:1;padding:.65rem .95rem;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.85rem;font-family:inherit;color:#2d3748;background:#fff;outline:none;transition:border-color .2s,box-shadow .2s}
+        .input-row input:focus,.sender-row input:focus{border-color:#4da2ff;box-shadow:0 0 0 3px rgba(77,162,255,.08)}
+        .input-row input::placeholder,.sender-row input::placeholder,.tx-input textarea::placeholder{color:#a0aec0}
+        .input-row button{padding:.65rem 1.35rem;background:#4da2ff;color:#fff;border:none;border-radius:10px;font-size:.85rem;font-weight:600;font-family:inherit;cursor:pointer;transition:all .18s cubic-bezier(.16,1,.3,1);white-space:nowrap}
+        .input-row button:hover{background:#3b8de8;transform:translateY(-1px);box-shadow:0 3px 12px rgba(77,162,255,.3)}
+        .input-row button:active{transform:translateY(0)}
+        .input-row button:disabled{background:#a0aec0;cursor:not-allowed;transform:none;box-shadow:none}
+
+        .result{margin-top:1rem;padding:.9rem 1.15rem;border-radius:10px;font-size:.85rem;font-weight:500;line-height:1.55;animation:slideIn .35s cubic-bezier(.16,1,.3,1);display:none}
+        .result strong{font-size:1.02rem;display:block;margin-bottom:.3rem}
+        .result code{padding:.15rem .5rem;border-radius:4px;font-size:.78rem;font-family:'SF Mono','Fira Code',monospace}
+        .result.danger{background:#dc2626;border:2px solid #b91c1c;color:#fff}
+        .result.danger code{background:rgba(0,0,0,.15);color:#fff}
+        .result.allow{background:#16a34a;border:2px solid #15803d;color:#fff}
+        .result.allow code{background:rgba(0,0,0,.1);color:#fff}
+        .result.unknown{background:#d97706;border:2px solid #b45309;color:#fff}
+        .result.unknown code{background:rgba(0,0,0,.1);color:#fff}
+        .result.error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+        .result.info{background:#2563eb;border:2px solid #1d4ed8;color:#fff}
+        .result.info code{background:rgba(0,0,0,.1);color:#fff}
+        .stats{margin-top:.85rem;font-size:.7rem;color:#a0aec0;letter-spacing:.01em}
+
+        .lookup-detail,.sim-result{margin-top:1.1rem;animation:slideIn .35s cubic-bezier(.16,1,.3,1)}
+        .lookup-detail table,.sim-table{width:100%;border-collapse:collapse;font-size:.78rem}
+        .lookup-detail td,.sim-table td{padding:.5rem .65rem;border-bottom:1px solid #edf2f7}
+        .lookup-detail td:first-child,.sim-table td:first-child{color:#718096;width:105px;font-weight:500}
+        .lookup-detail td:last-child,.sim-table td:last-child{color:#2d3748;word-break:break-all}
+        .tag{display:inline-block;padding:.15rem .55rem;border-radius:5px;font-size:.68rem;font-weight:600;margin-left:.45rem;letter-spacing:.02em}
+        .tag-safe{background:#dcfce7;color:#166534}
+        .tag-warn{background:#fef3c7;color:#92400e}
+        .tag-danger{background:#fee2e2;color:#991b1b}
+        .tag-info{background:#dbeafe;color:#1e40af}
+
+        .sender-row{margin-bottom:.85rem}
+        .sender-row input{width:100%}
+        .tx-input textarea{width:100%;padding:.85rem 1rem;border:1.5px solid #e2e8f0;border-radius:10px;font-size:.78rem;font-family:'SF Mono','Fira Code',Consolas,monospace;color:#2d3748;background:#fff;outline:none;resize:vertical;min-height:80px;transition:border-color .2s,box-shadow .2s}
+        .tx-input textarea:focus{border-color:#4da2ff;box-shadow:0 0 0 3px rgba(77,162,255,.08)}
+        .tx-btn{width:100%;padding:.8rem;background:#4da2ff;color:#fff;border:none;border-radius:10px;font-size:.88rem;font-weight:600;font-family:inherit;cursor:pointer;margin-top:.85rem;transition:all .18s cubic-bezier(.16,1,.3,1)}
+        .tx-btn:hover{background:#3b8de8;transform:translateY(-1px);box-shadow:0 4px 16px rgba(77,162,255,.3)}
+        .tx-btn:active{transform:translateY(0)}
+        .tx-btn:disabled{background:#a0aec0;cursor:not-allowed;transform:none;box-shadow:none}
+        .sim-section{margin-top:1.15rem}
+        .sim-section h4{font-size:.72rem;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
+        .sim-table td:first-child{width:125px}
+        .sim-table .neg{color:#dc2626;font-weight:600}
+        .sim-table .pos{color:#16a34a;font-weight:600}
+
+        .mid{background:linear-gradient(180deg,#fff 0%,#f0f7ff 35%,#e1effe 100%);padding:3.5rem 0 4.5rem}
+        .mid h2{font-size:1.2rem;font-weight:600;color:#2d3748;text-align:center;margin-bottom:2.5rem}
+        .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;max-width:820px;margin:0 auto;padding:0 2rem}
+        .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.5rem;transition:transform .25s cubic-bezier(.16,1,.3,1),box-shadow .25s}
+        .card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.05)}
+        .card-icon{width:36px;height:36px;background:#ebf4ff;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:.9rem}
+        .card-icon svg{width:18px;height:18px;stroke:#3182ce;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        .card h3{font-size:.88rem;font-weight:600;color:#2d3748;margin-bottom:.45rem}
+        .card p{font-size:.78rem;color:#718096;line-height:1.6}
+
+        .bottom{background:#e1effe;padding:4rem 2rem}
+        .flow{max-width:540px;margin:0 auto}
+        .flow h2{font-size:1.2rem;font-weight:600;color:#2d3748;text-align:center;margin-bottom:2rem}
+        .flow-step{display:flex;gap:.95rem;margin-bottom:1.35rem}
+        .flow-num{width:26px;height:26px;background:#fff;border-radius:8px;color:#3182ce;font-size:.72rem;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .flow-step h4{font-size:.84rem;font-weight:600;color:#2d3748;margin-bottom:.18rem}
+        .flow-step p{font-size:.78rem;color:#4a5568;line-height:1.55}
+        .built-on{max-width:540px;margin:2.75rem auto 0;display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+        .built-item{background:rgba(255,255,255,.7);border-radius:10px;padding:.85rem 1.15rem;transition:background .2s}
+        .built-item:hover{background:rgba(255,255,255,.9)}
+        .built-item .lbl{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:#a0aec0;font-weight:500}
+        .built-item .val{font-size:.8rem;color:#4a5568;margin-top:.18rem}
+        .built-item a{color:#3182ce;font-weight:500}
+        .footer{background:#d6e4f7;text-align:center;padding:1.6rem}
+        .footer p{font-size:.72rem;color:#718096;letter-spacing:.01em}
+        .footer a{color:#4a5568;transition:color .15s}
+        .footer a:hover{color:#2d3748}
+
+        @keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+        @media(max-width:768px){.hero h1{font-size:1.95rem}.hero{padding:3.5rem 1.5rem 2rem}.cards{grid-template-columns:1fr;max-width:420px}.built-on{grid-template-columns:1fr}.tool-tab{font-size:.75rem;padding:.75rem .5rem}.tool-tab svg{margin-right:4px}}
+        @media(max-width:640px){.hero h1{font-size:1.75rem}.hero p{font-size:.92rem}.nav{padding:1rem 1.25rem}.nav-brand span{font-size:.95rem}.tool-section{padding:1rem 1rem 2.5rem}.tool-panel{padding:1.25rem}.input-row{flex-direction:column}.input-row button{width:100%}.tool-tab{font-size:.72rem;padding:.7rem .35rem}.tool-tab svg{display:none}.mid{padding:2.5rem 0 3.5rem}.cards{padding:0 1.25rem;gap:1rem}.bottom{padding:3rem 1.25rem}}
+        @media(max-width:380px){.hero h1{font-size:1.55rem}.tool-tab{font-size:.68rem}}
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="/" class="nav-brand">
+            <svg viewBox="0 0 300 383.5" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#4DA2FF" fill-rule="evenodd" clip-rule="evenodd" d="M240.1,159.9c15.6,19.6,25,44.5,25,71.5s-9.6,52.6-25.7,72.4l-1.4,1.7l-0.4-2.2c-0.3-1.8-0.7-3.7-1.1-5.6c-8-35.3-34.2-65.6-77.4-90.2c-29.1-16.5-45.8-36.4-50.2-59c-2.8-14.6-0.7-29.3,3.3-41.9c4.1-12.6,10.1-23.1,15.2-29.4l16.8-20.5c2.9-3.6,8.5-3.6,11.4,0L240.1,159.9L240.1,159.9z M266.6,139.4L154.2,2c-2.1-2.6-6.2-2.6-8.3,0L33.4,139.4l-0.4,0.5C12.4,165.6,0,198.2,0,233.7c0,82.7,67.2,149.8,150,149.8c82.8,0,150-67.1,150-149.8c0-35.5-12.4-68.1-33.1-93.8L266.6,139.4L266.6,139.4z M60.3,159.5l10-12.3l0.3,2.3c0.2,1.8,0.5,3.6,0.9,5.4c6.5,34.1,29.8,62.6,68.6,84.6c33.8,19.2,53.4,41.3,59.1,65.6c2.4,10.1,2.8,20.1,1.8,28.8l-0.1,0.5l-0.5,0.2c-15.2,7.4-32.4,11.6-50.5,11.6c-63.5,0-115-51.4-115-114.8C34.9,204.2,44.4,179.1,60.3,159.5L60.3,159.5z"/>
+            </svg>
+            <span>SuiShield</span>
+        </a>
+        <div class="nav-links">
+            <a href="https://github.com/suishield/suishield.io" target="_blank">GitHub</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>See what a transaction does before you sign it</h1>
+        <p>SuiShield sits between the dApp and your wallet. Every signing request gets simulated against live chain state — you see what moves, then you decide.</p>
+        <div class="badge"><span class="dot"></span> In development</div>
+    </section>
+
+    <section class="tool-section">
+        <div class="tool-box">
+            <div class="tool-tabs">
+                <button class="tool-tab active" onclick="switchTab('domain')">
+                    <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    Domain Check
+                </button>
+                <button class="tool-tab" onclick="switchTab('contract')">
+                    <svg viewBox="0 0 24 24" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Address Lookup
+                </button>
+                <button class="tool-tab" onclick="switchTab('simulate')">
+                    <svg viewBox="0 0 24 24" width="14" height="14"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    TX Simulator
+                </button>
+            </div>
+
+            <div id="panel-domain" class="tool-panel">
+                <p class="tool-desc">Check any URL or domain against <a href="https://github.com/suiet/guardians" target="_blank" rel="noopener">Sui Guardians</a> — 46,000+ known phishing sites targeting the Sui ecosystem.</p>
+                <div class="input-row">
+                    <input type="text" id="domainInput" placeholder="e.g. app.cetus.zone" spellcheck="false" autocomplete="off">
+                    <button id="domainBtn" onclick="checkDomain()">Check</button>
+                </div>
+                <div id="domainResult" class="result" style="display:none"></div>
+                <div id="domainStats" class="stats"></div>
+            </div>
+
+            <div id="panel-contract" class="tool-panel" style="display:none">
+                <p class="tool-desc">Paste any Sui address — contract, object, or wallet. Reads directly from the network.</p>
+                <div class="input-row">
+                    <input type="text" id="addressInput" placeholder="0x... (contract, object, or wallet)" spellcheck="false" autocomplete="off">
+                    <button id="addressBtn" onclick="lookupAddress()">Lookup</button>
+                </div>
+                <div id="addressResult" class="result" style="display:none"></div>
+                <div id="addressDetail" class="lookup-detail" style="display:none"></div>
+            </div>
+
+            <div id="panel-simulate" class="tool-panel" style="display:none">
+                <p class="tool-desc">Paste a base64 transaction block to simulate it against live Sui chain state before signing.</p>
+                <div class="sender-row">
+                    <input type="text" id="senderInput" placeholder="Sender address (0x...) — who would sign this TX?" spellcheck="false" autocomplete="off">
+                </div>
+                <div class="tx-input">
+                    <textarea id="txInput" placeholder="Paste base64 transaction bytes here (BQ...)" spellcheck="false" rows="3"></textarea>
+                </div>
+                <button class="tx-btn" id="simulateBtn" onclick="simulateTx()">Simulate</button>
+                <div id="simulateResult" class="result" style="display:none"></div>
+                <div id="simulateDetail" class="sim-result" style="display:none"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="mid">
+        <h2>What it catches</h2>
+        <div class="cards">
+            <div class="card">
+                <div class="card-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg></div>
+                <h3>Blind signatures</h3>
+                <p>Every transaction gets dry-run first. You see coins in and out, objects transferred, contracts called.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                <h3>Drainer contracts</h3>
+                <p>Known attack patterns flagged before your wallet ever sees the request. Abnormal outflows get a warning.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+                <h3>Phishing sites</h3>
+                <p>Connected sites checked against the Sui Guardians blocklist. Warns before you connect, not after.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="bottom">
+        <div class="flow">
+            <h2>How it works</h2>
+            <div class="flow-step"><div class="flow-num">1</div><div><h4>dApp asks for a signature</h4><p>You swap, stake, mint — anything that needs signing.</p></div></div>
+            <div class="flow-step"><div class="flow-num">2</div><div><h4>SuiShield intercepts</h4><p>The request gets simulated using Sui's native simulateTransaction before your wallet sees it.</p></div></div>
+            <div class="flow-step"><div class="flow-num">3</div><div><h4>You see what happens</h4><p>Balance changes, object moves, contract calls — plain language, not hex.</p></div></div>
+            <div class="flow-step"><div class="flow-num">4</div><div><h4>You decide</h4><p>Approve — goes to wallet. Reject — nothing sent.</p></div></div>
+        </div>
+        <div class="built-on">
+            <div class="built-item"><div class="lbl">Simulation</div><div class="val"><a href="https://docs.sui.io/guides/developer/sui-101/simulating-refs" target="_blank" rel="noopener">simulateTransaction</a></div></div>
+            <div class="built-item"><div class="lbl">Phishing data</div><div class="val"><a href="https://github.com/suiet/guardians" target="_blank" rel="noopener">Sui Guardians</a></div></div>
+            <div class="built-item"><div class="lbl">Wallets</div><div class="val"><a href="https://docs.sui.io/standards/wallet-standard" target="_blank" rel="noopener">Wallet Standard</a> — any</div></div>
+            <div class="built-item"><div class="lbl">Backend</div><div class="val">None — client-side only</div></div>
+        </div>
+    </section>
+
+    <footer class="footer"><p><a href="https://github.com/suishield/suishield.io" target="_blank">suishield</a> &middot; <a href="https://github.com/mehvetero" target="_blank">mehvetero</a></p></footer>
+
+    <script>
+    var SUI_RPC = 'https://sui-mainnet.blockvision.org/v1/3IQrIRW5Ge87dPpT9o5XEebkSG7';
+    var blocklist=null,allowlist=null,blLoaded=false,blLoading=false;
+    var activeTab='domain';
+
+    document.addEventListener('DOMContentLoaded',function(){
+        loadBlocklist();
+        document.getElementById('domainInput').addEventListener('keydown',function(e){if(e.key==='Enter')checkDomain()});
+        document.getElementById('addressInput').addEventListener('keydown',function(e){if(e.key==='Enter')lookupAddress()});
+        document.getElementById('txInput').addEventListener('keydown',function(e){if(e.key==='Enter'&&e.ctrlKey)simulateTx()});
+        document.getElementById('senderInput').addEventListener('keydown',function(e){if(e.key==='Enter')simulateTx()});
+    });
+
+    function switchTab(name){
+        activeTab=name;
+        var tabs=document.querySelectorAll('.tool-tab');
+        var panels=document.querySelectorAll('.tool-panel');
+        for(var i=0;i<tabs.length;i++)tabs[i].classList.remove('active');
+        for(var i=0;i<panels.length;i++){panels[i].classList.remove('active');panels[i].style.display='none'}
+        if(name==='domain'){tabs[0].classList.add('active');document.getElementById('panel-domain').style.display='block'}
+        else if(name==='contract'){tabs[1].classList.add('active');document.getElementById('panel-contract').style.display='block'}
+        else{tabs[2].classList.add('active');document.getElementById('panel-simulate').style.display='block'}
+    }
+
+    function show(el,cls,html){el.style.display='block';el.className='result '+cls;el.innerHTML=html}
+    function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+    function shortAddr(s){if(!s||s.length<=20)return s;return s.substring(0,10)+'...'+s.slice(-6)}
+    function shortType(s){if(!s||s.length<=55)return s;return s.substring(0,48)+'...'}
+    function formatSui(mist){var n=parseInt(mist)/1e9;if(n<.0001&&n!==0)return n.toExponential(2);return n.toLocaleString(undefined,{maximumFractionDigits:4})}
+    function coinSymbol(t){if(!t)return '?';if(t==='0x2::sui::SUI')return 'SUI';var p=t.split('::');return p[p.length-1]||t}
+
+    /* ===== DOMAIN CHECK ===== */
+    function loadBlocklist(){
+        if(blLoaded||blLoading)return;
+        blLoading=true;
+        var el=document.getElementById('domainStats');
+        el.textContent='Loading blocklist...';
+        var x=new XMLHttpRequest();
+        x.open('GET','https://raw.githubusercontent.com/suiet/guardians/main/dist/domain-list.json',true);
+        x.onload=function(){
+            if(x.status===200){
+                try{
+                    var d=JSON.parse(x.responseText);
+                    var bl=d.blocklist||[],al=d.allowlist||[];
+                    blocklist={};allowlist={};
+                    for(var i=0;i<bl.length;i++)blocklist[bl[i]]=true;
+                    for(var i=0;i<al.length;i++)allowlist[al[i]]=true;
+                    blLoaded=true;blLoading=false;
+                    el.textContent=bl.length.toLocaleString()+' phishing domains loaded';
+                }catch(e){el.textContent='Failed to parse blocklist.';blLoading=false}
+            }else{el.textContent='Failed to load blocklist (HTTP '+x.status+')';blLoading=false}
+        };
+        x.onerror=function(){el.textContent='Network error.';blLoading=false};
+        x.send();
+    }
+
+    function extractDomain(s){return s.trim().toLowerCase().replace(/^https?:\/\//,'').split('/')[0].split('?')[0].split('#')[0].split(':')[0].replace(/\.+$/,'')}
+    function inList(d,list){
+        if(list[d])return true;
+        var p=d.split('.');
+        for(var i=1;i<p.length;i++){if(list[p.slice(i).join('.')])return true}
+        return false;
+    }
+
+    function checkDomain(){
+        var input=document.getElementById('domainInput').value;
+        var el=document.getElementById('domainResult');
+        if(!input.trim()){show(el,'error','Enter a URL or domain to check.');return}
+        if(!blLoaded){show(el,'error','Blocklist still loading — wait a moment and try again.');return}
+        var d=extractDomain(input);
+        if(!d||d.indexOf('.')===-1){show(el,'error','That doesn\'t look like a valid domain.');return}
+        if(inList(d,blocklist)){
+            show(el,'danger','<strong>🚫 PHISHING — DO NOT CONNECT</strong><code>'+d+'</code> is a confirmed scam site. Connecting your wallet here will result in loss of funds. Leave immediately.');
+        }else if(inList(d,allowlist)){
+            show(el,'allow','<strong>✅ Verified safe</strong><code>'+d+'</code> is a recognized Sui ecosystem site. Verified by Sui Guardians across 46,000+ reviewed domains.');
+        }else{
+            show(el,'unknown','<strong>⚠ Not reviewed yet</strong><code>'+d+'</code> has not been reviewed by Sui Guardians. This does not mean it\'s safe — exercise caution and verify the URL carefully before connecting your wallet.');
+        }
+    }
+
+    /* ===== ADDRESS LOOKUP ===== */
+    function suiRPC(method,params,cb){
+        var x=new XMLHttpRequest();
+        x.open('POST',SUI_RPC,true);
+        x.setRequestHeader('Content-Type','application/json');
+        x.onload=function(){
+            if(x.status===200){
+                try{
+                    var r=JSON.parse(x.responseText);
+                    if(r.error)cb(r.error.message,null);else cb(null,r.result);
+                }catch(e){cb('Parse error',null)}
+            }else cb('HTTP '+x.status,null);
+        };
+        x.onerror=function(){cb('Network error',null)};
+        x.send(JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params}));
+    }
+
+    function lookupAddress(){
+        var input=document.getElementById('addressInput').value.trim();
+        var el=document.getElementById('addressResult');
+        var detail=document.getElementById('addressDetail');
+        detail.style.display='none';
+        if(!input){show(el,'error','Enter a Sui address (0x...).');return}
+        if(!input.startsWith('0x')||input.length<10){show(el,'error','Not a valid Sui address.');return}
+        show(el,'info','Looking up on Sui mainnet...');
+        document.getElementById('addressBtn').disabled=true;
+
+        suiRPC('sui_getObject',[input,{showType:true,showOwner:true,showContent:true,showPreviousTransaction:true}],function(err,obj){
+            if(!err&&obj&&obj.data){
+                showObjectResult(el,detail,obj.data,input);
+            }else{
+                suiRPC('suix_getAllBalances',[input],function(err2,balances){
+                    document.getElementById('addressBtn').disabled=false;
+                    if(!err2&&balances&&balances.length>0){
+                        showWalletResult(el,detail,balances,input);
+                    }else if(!err2&&balances&&balances.length===0){
+                        show(el,'unknown','<strong>Empty wallet</strong>This address exists but holds no tokens.');
+                    }else{
+                        show(el,'unknown','<strong>Not found</strong>This address was not found as an object or wallet on Sui mainnet.');
+                    }
+                });
+            }
+        });
+    }
+
+    function showObjectResult(el,detail,d,addr){
+        var objType=d.type||'unknown';
+        var owner=d.owner,ownerStr='unknown';
+        if(owner){
+            if(typeof owner==='string')ownerStr=owner;
+            else if(owner.AddressOwner)ownerStr=owner.AddressOwner;
+            else if(owner.ObjectOwner)ownerStr=owner.ObjectOwner;
+            else if(owner.Shared)ownerStr='Shared object';
+            else if(owner==='Immutable'||owner.Immutable!==undefined)ownerStr='Immutable';
+        }
+        var isPkg=objType==='package';
+        var isShared=ownerStr==='Shared object';
+        var version=d.version||'';
+        var balance=null;
+        if(d.content&&d.content.fields&&d.content.fields.balance)balance=parseInt(d.content.fields.balance)/1e9;
+
+        var rows='';
+        rows+=lr('Type',escHtml(shortType(objType)));
+        rows+=lr('Owner',escHtml(shortAddr(ownerStr))+(isShared?' <span class="tag tag-warn">shared</span>':ownerStr==='Immutable'?' <span class="tag tag-safe">immutable</span>':''));
+        if(isPkg)rows+=lr('Kind','Published package <span class="tag tag-info">package</span>');
+        if(balance!==null)rows+=lr('Balance',balance.toLocaleString(undefined,{maximumFractionDigits:4})+' SUI');
+        rows+=lr('Version',escHtml(version));
+        if(isPkg&&version>1)rows+=lr('Upgrades',(version-1)+' upgrade(s) <span class="tag tag-warn">upgradeable</span>');
+        if(isPkg&&version==1)rows+=lr('Upgrades','None <span class="tag tag-safe">original</span>');
+        rows+=lr('Digest','<span style="font-size:.72rem">'+escHtml(d.digest||'')+'</span>');
+
+        show(el,'info','<strong>ℹ Object found</strong>');
+        detail.innerHTML='<table>'+rows+'</table>';
+        detail.style.display='block';
+
+        if(d.previousTransaction){
+            suiRPC('sui_getTransactionBlock',[d.previousTransaction,{}],function(err,tx){
+                if(!err&&tx&&tx.timestampMs){
+                    var date=new Date(parseInt(tx.timestampMs));
+                    var ds=date.toISOString().split('T')[0];
+                    var ago=Math.floor((Date.now()-date.getTime())/86400000);
+                    var tag=ago<30?'<span class="tag tag-warn">'+ago+'d ago</span>':'<span class="tag tag-safe">'+ago+'d ago</span>';
+                    var tbl=detail.querySelector('table');
+                    if(tbl){
+                        var tr=document.createElement('tr');
+                        tr.innerHTML='<td>Last activity</td><td>'+ds+' '+tag+'</td>';
+                        tbl.insertBefore(tr,tbl.children[tbl.children.length-1]);
+                    }
+                }
+            });
+        }
+        document.getElementById('addressBtn').disabled=false;
+    }
+
+    function showWalletResult(el,detail,balances,addr){
+        var rows='';
+        for(var i=0;i<balances.length;i++){
+            var b=balances[i];
+            var sym=(b.coinType||'').split('::').pop()||'?';
+            var raw=parseInt(b.totalBalance||'0');
+            var dec=(sym==='USDC'||sym==='USDT')?6:9;
+            var amt=(raw/Math.pow(10,dec)).toLocaleString(undefined,{maximumFractionDigits:4});
+            rows+=lr(sym,amt+' <span style="color:#a0aec0;font-size:.68rem;display:block;margin-top:.1rem">'+escHtml(shortType(b.coinType))+'</span>');
+        }
+        rows+=lr('Tokens',balances.length+' type(s)');
+        rows+=lr('Address','<span style="font-size:.72rem">'+escHtml(addr)+'</span>');
+        show(el,'info','<strong>💰 Wallet found</strong>');
+        detail.innerHTML='<table>'+rows+'</table>';
+        detail.style.display='block';
+        document.getElementById('addressBtn').disabled=false;
+    }
+
+    function lr(l,v){return '<tr><td>'+l+'</td><td>'+v+'</td></tr>'}
+
+    /* ===== TX SIMULATOR ===== */
+    function simulateTx(){
+        var raw=document.getElementById('txInput').value.trim();
+        var sender=document.getElementById('senderInput').value.trim();
+        var el=document.getElementById('simulateResult');
+        var detail=document.getElementById('simulateDetail');
+        detail.style.display='none';
+        var btn=document.getElementById('simulateBtn');
+
+        if(!raw){show(el,'error','Paste a transaction to simulate.');return}
+        if(!sender){show(el,'error','Enter a sender address (who would sign this TX).');return}
+        if(!sender.startsWith('0x')){show(el,'error','Sender address must start with 0x.');return}
+
+        show(el,'info','Simulating against live Sui chain state...');
+        btn.disabled=true;
+        btn.textContent='Simulating...';
+
+        suiRPC('sui_devInspectTransactionBlock',[sender,raw],function(err,sim){
+            btn.disabled=false;
+            btn.textContent='Simulate';
+            if(err){show(el,'error','<strong>Simulation failed</strong>'+escHtml(err));return}
+            if(!sim){show(el,'error','Simulation returned nothing.');return}
+
+            var effects=sim.effects||{};
+            var status=(effects.status&&effects.status.status)||'unknown';
+            var simError=(effects.status&&effects.status.error)||null;
+            var gas=effects.gasUsed||null;
+            var balCh=sim.balanceChanges||[];
+            var objCh=sim.objectChanges||[];
+            var evts=sim.events||[];
+
+            if(status==='success'){
+                show(el,'allow','<strong>✅ Would succeed</strong>This transaction would execute successfully on Sui mainnet.');
+            }else{
+                show(el,'danger','<strong>🚫 Would fail</strong>'+escHtml(simError||'The transaction would abort.'));
+            }
+
+            var html='';
+            if(gas){
+                html+='<div class="sim-section"><h4>Gas</h4><table class="sim-table"><tbody>';
+                html+='<tr><td>Computation</td><td>'+formatSui(gas.computationCost)+' SUI</td></tr>';
+                html+='<tr><td>Storage</td><td>'+formatSui(gas.storageCost)+' SUI</td></tr>';
+                html+='<tr><td>Rebate</td><td>'+formatSui(gas.storageRebate)+' SUI</td></tr>';
+                html+='</tbody></table></div>';
+            }
+
+            if(balCh.length>0){
+                html+='<div class="sim-section"><h4>Balance changes</h4><table class="sim-table"><tbody>';
+                for(var i=0;i<balCh.length;i++){
+                    var bc=balCh[i];
+                    var owner=bc.owner;
+                    var isSender=false;
+                    if(owner){
+                        if(typeof owner==='string')isSender=(owner===sender);
+                        else if(owner.AddressOwner)isSender=(owner.AddressOwner===sender);
+                    }
+                    var amt=parseInt(bc.amount);
+                    var sign=amt>=0?'+':'';
+                    var cls=amt<0?'neg':'pos';
+                    var sym=coinSymbol(bc.coinType);
+                    html+='<tr><td>'+sym+(isSender?' <span class="tag tag-info">you</span>':'')+'</td>';
+                    html+='<td class="'+cls+'">'+sign+formatSui(amt)+' '+sym+'</td></tr>';
+                }
+                html+='</tbody></table></div>';
+            }
+
+            if(objCh.length>0){
+                html+='<div class="sim-section"><h4>Objects ('+objCh.length+')</h4><table class="sim-table"><tbody>';
+                for(var i=0;i<objCh.length;i++){
+                    var oc=objCh[i];
+                    var ct=oc.type||'unknown';
+                    var label=ct.replace(/([A-Z])/g,' $1').toLowerCase();
+                    var tcls=ct==='created'?'tag-safe':ct==='deleted'?'tag-danger':'tag-warn';
+                    html+='<tr><td><span class="tag '+tcls+'">'+label+'</span></td>';
+                    html+='<td style="font-size:.72rem">'+escHtml(shortAddr(oc.objectType||''))+(oc.objectId?'<br>'+escHtml(shortAddr(oc.objectId)):'')+'</td></tr>';
+                }
+                html+='</tbody></table></div>';
+            }
+
+            if(evts.length>0){
+                html+='<div class="sim-section"><h4>Events ('+evts.length+')</h4><table class="sim-table"><tbody>';
+                for(var i=0;i<evts.length;i++){
+                    html+='<tr><td style="font-size:.72rem">'+escHtml(shortAddr(evts[i].type||'event'))+'</td><td></td></tr>';
+                }
+                html+='</tbody></table></div>';
+            }
+
+            if(html){
+                detail.innerHTML=html;
+                detail.style.display='block';
+            }
+        });
+    }
+    </script>
+</body>
+</html>
